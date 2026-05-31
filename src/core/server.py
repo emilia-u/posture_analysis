@@ -23,8 +23,7 @@ SCALER_PATH = os.path.join(BASE_DIR, "models", "scaler.pkl")
 PROFILES_DIR = os.path.join(BASE_DIR, "data", "profiles")
 
 LANDMARKS_TO_USE = {
-    "nose": 0, "left_eye": 2, "right_eye": 5, "left_ear": 7, "right_ear": 8,
-    "left_shoulder": 11, "right_shoulder": 12
+    "nose": 0, "left_shoulder": 11, "right_shoulder": 12
 }
 
 
@@ -235,6 +234,7 @@ async def posture_server(websocket):
 
         predictions = []
         SMOOTH_N = 20
+        INFERENCE_INTERVAL = 0.2  # 5 Hz
         bad_since = None
         bad_seconds = 0.0
 
@@ -243,6 +243,9 @@ async def posture_server(websocket):
         warning_sent = False
 
         last_time = time.time()
+        last_inference_time = 0.0
+        last_label = 0
+        last_confidence = 1.0
 
         good_since = None
         good_seconds = 0.0
@@ -271,8 +274,8 @@ async def posture_server(websocket):
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = pose.process(rgb)
 
-                label = 0
-                confidence = 1.0
+                label = last_label
+                confidence = last_confidence
                 person_visible = bool(results.pose_landmarks)
 
                 now = time.time()
@@ -291,19 +294,24 @@ async def posture_server(websocket):
                         mp_drawing.DrawingSpec(color=(0, 255, 120), thickness=2, circle_radius=3),
                         mp_drawing.DrawingSpec(color=(255, 255, 0), thickness=2)
                     )
-                    raw_features = extract_features(results.pose_landmarks.landmark)
-                    norm_features = normalize_features(raw_features, calibration)
+                    if now - last_inference_time >= INFERENCE_INTERVAL:
+                        last_inference_time = now
+                        raw_features = extract_features(results.pose_landmarks.landmark)
+                        norm_features = normalize_features(raw_features, calibration)
 
-                    X = np.array(norm_features).reshape(1, -1)
-                    if scaler: X = scaler.transform(X)
+                        X = np.array(norm_features).reshape(1, -1)
+                        if scaler: X = scaler.transform(X)
 
-                    pred = model.predict(X)[0]
-                    proba = model.predict_proba(X)[0]
-                    confidence = float(proba[pred])
+                        pred = model.predict(X)[0]
+                        proba = model.predict_proba(X)[0]
+                        last_confidence = float(proba[pred])
 
-                    predictions.append(pred)
-                    if len(predictions) > SMOOTH_N: predictions.pop(0)
-                    label = 1 if predictions.count(1) >= int(SMOOTH_N * 0.7) else 0
+                        predictions.append(pred)
+                        if len(predictions) > SMOOTH_N: predictions.pop(0)
+                        last_label = 1 if predictions.count(1) >= int(SMOOTH_N * 0.7) else 0
+
+                    label = last_label
+                    confidence = last_confidence
 
                     if label == 1:  # --- ZŁA POSTAWA ---
                         good_since = None

@@ -1,9 +1,7 @@
 import numpy as np
 
 LANDMARKS_TO_USE = [
-    "nose", "left_eye", "right_eye",
-    "left_ear", "right_ear",
-    "left_shoulder", "right_shoulder",
+    "nose", "left_shoulder", "right_shoulder",
 ]
 
 
