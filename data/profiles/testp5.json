@@ -1,0 +1,15 @@
+{
+  "name": "testp5",
+  "calibration": {
+    "nose_x": 0.5268805229663849,
+    "nose_y": 0.5426865915457407,
+    "nose_z": -0.9039925698439281,
+    "left_shoulder_x": 0.6375711143016816,
+    "left_shoulder_y": 0.7441399717330932,
+    "left_shoulder_z": -0.4465591243902842,
+    "right_shoulder_x": 0.43105018357435865,
+    "right_shoulder_y": 0.7661222453912099,
+    "right_shoulder_z": -0.37428310453891755
+  },
+  "created_at": "2026-06-07 17:04:43"
+}
