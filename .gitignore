@@ -53,6 +53,7 @@ data/raw_video/
 # ============================================
 # 🔴 MODELS AND CACHES (IF REGENERABLE)
 # ============================================
+models/scaler.pkl
 models/*.h5
 models/*.pt
 
