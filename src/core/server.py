@@ -35,14 +35,14 @@ def extract_features(landmarks):
     return features
 
 
-# Ładujemy model z Jupytera na samym początku
-print("\n[AI] Wczytuję model sieci...")
+# Load the model trained in Jupyter right at startup
+print("\n[AI] Loading the model...")
 model = joblib.load(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH) if os.path.exists(SCALER_PATH) else None
 
 
 async def posture_server(websocket):
-    print("\n[SERWER] Interfejs połączony!")
+    print("\n[SERVER] Interface connected!")
 
 
     def get_profiles_list():
@@ -52,9 +52,9 @@ async def posture_server(websocket):
                 profiles.append(os.path.basename(f).replace(".json", ""))
         return profiles
 
-    # GŁÓWNA PĘTLA SESJI APLIKACJI
+    # MAIN APPLICATION SESSION LOOP
     while True:
-        print("[SERWER] Przesyłam listę profili i czekam na wybór...")
+        print("[SERVER] Sending the profile list and waiting for a selection...")
         try:
             await websocket.send(json.dumps({"type": "profiles_list", "data": get_profiles_list()}))
         except websockets.exceptions.ConnectionClosed:
@@ -62,31 +62,31 @@ async def posture_server(websocket):
 
         profile_name = None
 
-        # Czekamy na akcję użytkownika (wybór profilu lub stworzenie nowego)
+        # Wait for a user action (select a profile or create a new one)
         while True:
             try:
                 msg = await websocket.recv()
             except websockets.exceptions.ConnectionClosed:
-                print("\n[SERWER] Rozłączono interfejs użytkownika.")
+                print("\n[SERVER] User interface disconnected.")
                 return
 
             client_data = json.loads(msg)
-            # Obsługa USUWANIA profilu
+            # Handle profile DELETION
             if client_data.get("type") == "delete_profile":
                 del_name = client_data.get("name")
                 if del_name:
                     if delete_profile(del_name):
-                        print(f"\n[SERWER] Usunięto profil z dysku: {del_name}")
+                        print(f"\n[SERVER] Deleted profile from disk: {del_name}")
 
-                # Po usunięciu odświeżamy listę w interfejsie
+                # After deleting, refresh the list in the interface
                 await websocket.send(json.dumps({"type": "profiles_list", "data": get_profiles_list()}))
                 continue
-            # Obsługa tworzenia nowego profilu
+            # Handle creating a new profile
             if client_data.get("type") == "create_profile":
                 new_profile_name = client_data.get("name", "").strip()
                 avatar_type = client_data.get("avatar_type", "cat")
                 if new_profile_name:
-                    print(f"\n[SERWER] Rozpoczęcie kalibracji dla profilu: {new_profile_name}")
+                    print(f"\n[SERVER] Starting calibration for profile: {new_profile_name}")
                     cap = cv2.VideoCapture(0)
                     mp_pose = mp.solutions.pose
                     mp_drawing = mp.solutions.drawing_utils
@@ -140,9 +140,9 @@ async def posture_server(websocket):
                                         for key in keys:
                                             values = [s[key] for s in samples]
                                             calibration_data[key] = float(np.mean(values))
-                                        print(f"✅ Zebrano {len(samples)} próbek kalibracyjnych!")
+                                        print(f"✅ Collected {len(samples)} calibration samples!")
                                     else:
-                                        print("❌ Za mało próbek!")
+                                        print("❌ Not enough samples!")
                                         samples = []
                                         collecting = False
                                         start_time = None
@@ -172,9 +172,9 @@ async def posture_server(websocket):
                                         collecting = True
                                         start_time = time.time()
                                         samples = []
-                                        print("▶ Rozpoczęto zbieranie próbek...")
+                                        print("▶ Started collecting samples...")
                                     elif cmd.get("type") == "cancel_calibration":
-                                        print("❌ Anulowano kalibrację")
+                                        print("❌ Calibration cancelled")
                                         cap.release()
                                         await websocket.send(json.dumps({"type": "profiles_list", "data": get_profiles_list()}))
                                         break
@@ -202,7 +202,7 @@ async def posture_server(websocket):
                         with open(profile_path, "w", encoding="utf-8") as f:
                             json.dump(profile_content, f, indent=2, ensure_ascii=False)
 
-                        print(f"✅ Profil '{new_profile_name}' zapisany!")
+                        print(f"✅ Profile '{new_profile_name}' saved!")
                         await websocket.send(json.dumps({"type": "profile_created", "name": new_profile_name}))
                 continue
 
@@ -214,19 +214,19 @@ async def posture_server(websocket):
                 profile_name = client_data["name"]
                 break
 
-        # KONTYNUACJA Z WYBRANYM PROFILEM
+        # CONTINUE WITH THE SELECTED PROFILE
         profile_path = os.path.join(PROFILES_DIR, f"{profile_name}.json")
         with open(profile_path, "r", encoding="utf-8") as f:
             profile_data = json.load(f)
 
         calibration = profile_data.get("calibration")
         if not calibration:
-            print(f"[BŁĄD] Profil {profile_name} nie ma kalibracji!")
+            print(f"[ERROR] Profile {profile_name} has no calibration!")
             continue
 
-        STRETCH_LIMIT = 600    # 10 minut złej postawy → alert
-        RECOVERY_LIMIT = 120   # 2 minuty dobrej postawy → reset licznika
-        print(f"\n[SERWER] Załadowano profil '{profile_name}'. Odpalam kamerę!")
+        STRETCH_LIMIT = 600    # 10 minutes of bad posture → alert
+        RECOVERY_LIMIT = 120   # 2 minutes of good posture → reset the counter
+        print(f"\n[SERVER] Loaded profile '{profile_name}'. Starting the camera!")
 
         cap = cv2.VideoCapture(0)
         mp_pose = mp.solutions.pose
@@ -238,8 +238,8 @@ async def posture_server(websocket):
         bad_since = None
         bad_seconds = 0.0
 
-        total_bad_seconds = 0.0   # resetowany po każdym alercie (trigger)
-        session_total_bad = 0.0   # łączny czas złej postawy w sesji (do zapisu)
+        total_bad_seconds = 0.0   # reset after every alert (trigger)
+        session_total_bad = 0.0   # total bad-posture time in the session (saved)
         warning_sent = False
 
         last_time = time.time()
@@ -313,7 +313,7 @@ async def posture_server(websocket):
                     label = last_label
                     confidence = last_confidence
 
-                    if label == 1:  # --- ZŁA POSTAWA ---
+                    if label == 1:  # --- BAD POSTURE ---
                         good_since = None
                         good_seconds = 0.0
 
@@ -325,7 +325,7 @@ async def posture_server(websocket):
                             total_bad_seconds += dt
                             session_total_bad += dt
 
-                    else:  # --- DOBRA POSTAWA ---
+                    else:  # --- GOOD POSTURE ---
                         bad_since = None
                         bad_seconds = 0.0
 
@@ -338,12 +338,12 @@ async def posture_server(websocket):
                         if good_seconds >= RECOVERY_LIMIT:
                             if total_bad_seconds > 0:
                                 print(
-                                    f"\n[SERWER] 🌿 Zregenerowano postawę! Resetuję licznik zmęczenia z {total_bad_seconds:.1f}s do 0.")
+                                    f"\n[SERVER] 🌿 Posture recovered! Resetting the fatigue counter from {total_bad_seconds:.1f}s to 0.")
                                 total_bad_seconds = 0.0
                                 warning_sent = False
                             good_since = now
 
-                    # Śledzenie zmian stanu postawy (eventy do statystyk)
+                    # Track posture state changes (events for statistics)
                     if label != last_label_for_events:
                         session_events.append({
                             "state": "bad" if label == 1 else "good",
@@ -352,7 +352,7 @@ async def posture_server(websocket):
                         last_label_for_events = label
 
                     if bad_seconds >= 3.0:
-                        print(f"[ALERT] Ignorujesz kota! Zebrano: {total_bad_seconds:.1f}s / {STRETCH_LIMIT}s")
+                        print(f"[ALERT] You are ignoring the cat! Accumulated: {total_bad_seconds:.1f}s / {STRETCH_LIMIT}s")
 
                 _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
                 frame_base64 = base64.b64encode(buffer).decode('utf-8')
@@ -373,9 +373,9 @@ async def posture_server(websocket):
                     await websocket.send(json.dumps(send_data))
 
 
-                    # --- ALERT (100% limitu) ---
+                    # --- ALERT (100% of the limit) ---
                     if total_bad_seconds >= STRETCH_LIMIT:
-                        print("\n[SERWER] Limit złej postawy osiągnięty! Wysyłam alert o ćwiczeniach.")
+                        print("\n[SERVER] Bad posture limit reached! Sending a stretch alert.")
                         await websocket.send(json.dumps({"type": "stretch_alert"}))
                         session_alerts += 1
                         total_bad_seconds = 0.0
@@ -383,12 +383,12 @@ async def posture_server(websocket):
 
                     await asyncio.sleep(0.03)
 
-                    # NASŁUCHIWANIE NA KOMENDĘ "ZMIEŃ PROFIL" LUB "ZROBIONE ĆWICZENIE"
+                    # LISTEN FOR THE "CHANGE PROFILE" OR "STRETCH DONE" COMMAND
                     try:
                         cmd_msg = await asyncio.wait_for(websocket.recv(), timeout=0.001)
                         cmd = json.loads(cmd_msg)
                         if cmd.get("type") == "stop_session":
-                            print("\n[SERWER] Zatrzymano sesję kamery. Powrót do menu.")
+                            print("\n[SERVER] Camera session stopped. Returning to the menu.")
                             session_duration = (datetime.now() - session_start).total_seconds()
                             if session_duration >= 600:
                                 save_session(profile_name, {
@@ -400,11 +400,11 @@ async def posture_server(websocket):
                                     "alerts": session_alerts,
                                     "events": session_events
                                 })
-                                print(f"[SERWER] Sesja zapisana dla profilu: {profile_name}")
+                                print(f"[SERVER] Session saved for profile: {profile_name}")
                             session_active = False
                         elif cmd.get("type") == "stretch_done":
-                            print("\n[SERWER] Użytkownik wykonał ćwiczenie. Wznawiam analizę.")
-                            last_time = time.time()  # Resetujemy timer po pauzie na ekran ćwiczeń
+                            print("\n[SERVER] User finished the stretch. Resuming analysis.")
+                            last_time = time.time()  # Reset the timer after the pause for the stretch screen
                             bad_since = None
                         elif cmd.get("type") == "get_stats":
                             sessions = get_sessions(profile_name)
@@ -414,7 +414,7 @@ async def posture_server(websocket):
 
 
                 except websockets.exceptions.ConnectionClosed:
-                    print("\n[SERWER] Zamknięto okno aplikacji. Python gotowy na kolejne połączenie.")
+                    print("\n[SERVER] Application window closed. Python is ready for the next connection.")
                     session_duration = (datetime.now() - session_start).total_seconds()
                     if session_duration >= 600:
                         save_session(profile_name, {
@@ -426,16 +426,16 @@ async def posture_server(websocket):
                             "alerts": session_alerts,
                             "events": session_events
                         })
-                        print(f"[SERWER] Sesja zapisana (zamknięcie okna): {profile_name}")
+                        print(f"[SERVER] Session saved (window closed): {profile_name}")
                     cap.release()
                     return
 
         cap.release()
-        # Po wyjściu z pętli kamery skrypt grzecznie wraca na początek "GŁÓWNEJ PĘTLI SESJI"
+        # After leaving the camera loop the script returns to the start of the "MAIN SESSION LOOP"
 
 
 async def main():
-    print("\n🚀 Otwieram bramy WebSockets (Czekam na Electrona)...")
+    print("\n🚀 Opening the WebSocket gates (waiting for Electron)...")
     async with websockets.serve(posture_server, "localhost", 8765):
         await asyncio.Future()
 

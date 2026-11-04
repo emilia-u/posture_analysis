@@ -1,13 +1,13 @@
 """
-Ewaluacja czystego zbioru testowego – filmiki od prowadzącego.
-Logika inference identyczna jak server.py (finalny produkt).
+Evaluation on the clean test set – videos provided by the instructor.
+Inference logic is identical to server.py (the final product).
 
-Dla każdego pliku testp{N}.mp4:
-  1. Kalibracja profilu z pierwszych kilku sekund (osoba siedzi prosto).
-  2. Pełna analiza wideo z inference co INFERENCE_INTERVAL sekund (jak server).
-  3. Zapis do data/reports/testp{N}/wyniki_detekcji.csv
+For each testp{N}.mp4 file:
+  1. Profile calibration from the first few seconds (person sitting upright).
+  2. Full video analysis with inference every INFERENCE_INTERVAL seconds (like the server).
+  3. Save to data/reports/testp{N}/wyniki_detekcji.csv
 
-Uruchomienie:
+Usage:
   python src/core/evaluate_external_test.py
 """
 
@@ -27,7 +27,7 @@ sys.path.insert(0, BASE_DIR)
 
 from src.core.normalizer import normalize_features
 
-# ── Konfiguracja – identyczna jak server.py ───────────────────────────────────
+# ── Configuration – identical to server.py ────────────────────────────────────
 TEST_VIDEOS_DIR    = os.path.join(BASE_DIR, "data", "test_frames")
 PROFILES_DIR       = os.path.join(BASE_DIR, "data", "profiles")
 REPORTS_DIR        = os.path.join(BASE_DIR, "data", "reports")
@@ -35,13 +35,13 @@ MODEL_PATH         = os.path.join(BASE_DIR, "models", "posture_model.pkl")
 SCALER_PATH        = os.path.join(BASE_DIR, "models", "scaler.pkl")
 
 SMOOTH_N           = 20
-INFERENCE_INTERVAL = 0.2   # sekund między inferencjami (server: 5 Hz)
-CALIB_SECONDS      = 5.0   # ile sekund kalibracji
-CALIB_VIS_MIN      = 0.6   # minimalna widoczność ramion (jak server)
-CALIB_SAMPLES_MIN  = 10    # minimalna liczba próbek (jak server)
+INFERENCE_INTERVAL = 0.2   # seconds between inferences (server: 5 Hz)
+CALIB_SECONDS      = 5.0   # calibration duration in seconds
+CALIB_VIS_MIN      = 0.6   # minimum shoulder visibility (same as server)
+CALIB_SAMPLES_MIN  = 10    # minimum number of samples (same as server)
 
-# ── Per-video: od której sekundy zacząć kalibrację ───────────────────────────
-# Domyślnie 0.0 (od początku). Zmień jeśli na początku filmiku jest zła postura.
+# ── Per video: second at which to start calibration ──────────────────────────
+# Default 0.0 (from the start). Change it if the video starts with bad posture.
 CALIB_START_SEC = {
     "testp1": 180.0,
     "testp2": 185.0,
@@ -49,11 +49,11 @@ CALIB_START_SEC = {
     "testp4": 80.0,
 }
 
-# ── Które filmy przetworzyć (None = wszystkie) ────────────────────────────────
-# Ustaw np. ["testp2"] żeby przeliczyć tylko jeden filmik bez nadpisywania reszty
+# ── Which videos to process (None = all) ─────────────────────────────────────
+# Set e.g. ["testp2"] to re-run only one video without overwriting the rest
 RUN_ONLY = ["testp2", "testp4"]
 
-# Dokładnie te same landmarki co server.py
+# Exactly the same landmarks as server.py
 LANDMARKS_TO_USE = {
     "nose": 0, "left_shoulder": 11, "right_shoulder": 12
 }
@@ -61,7 +61,7 @@ LANDMARKS_TO_USE = {
 
 
 def extract_features(landmarks):
-    """Identyczna funkcja jak w server.py."""
+    """Identical to the function in server.py."""
     features = []
     for name, idx in LANDMARKS_TO_USE.items():
         lm = landmarks[idx]
@@ -71,8 +71,8 @@ def extract_features(landmarks):
 
 def calibrate_from_video(cap, pose, fps, profile_name, start_sec=0.0):
     """
-    Kalibracja z CALIB_SECONDS sekund wideo zaczynając od start_sec.
-    Logika widoczności i minimum próbek jak w server.py.
+    Calibration from CALIB_SECONDS seconds of video starting at start_sec.
+    Visibility and minimum-sample logic as in server.py.
     """
     start_frame = int(start_sec * fps)
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
@@ -99,8 +99,8 @@ def calibrate_from_video(cap, pose, fps, profile_name, start_sec=0.0):
                 samples.append(sample)
 
     if len(samples) < CALIB_SAMPLES_MIN:
-        print(f"  UWAGA: zebrano tylko {len(samples)} próbek kalibracyjnych "
-              f"(minimum {CALIB_SAMPLES_MIN}). Kontynuuję z tym co jest.")
+        print(f"  WARNING: only collected {len(samples)} calibration samples "
+              f"(minimum {CALIB_SAMPLES_MIN}). Continuing with what we have.")
     if not samples:
         return None
 
@@ -117,18 +117,18 @@ def calibrate_from_video(cap, pose, fps, profile_name, start_sec=0.0):
     with open(os.path.join(PROFILES_DIR, f"{profile_name}.json"), "w", encoding="utf-8") as f:
         json.dump(profile, f, indent=2, ensure_ascii=False)
 
-    print(f"  Kalibracja: {len(samples)} próbek z {start_sec}s–{start_sec+CALIB_SECONDS}s → "
+    print(f"  Calibration: {len(samples)} samples from {start_sec}s–{start_sec+CALIB_SECONDS}s → "
           f"data/profiles/{profile_name}.json")
     return calibration_data
 
 
 def evaluate_video(cap, pose, calibration, fps, model, scaler):
     """
-    Analiza wideo zgodna z server.py:
-    - MediaPipe na każdej klatce (0.6/0.6)
-    - Inference modelu co INFERENCE_INTERVAL sekund (5 Hz)
-    - Między inferencjami: last_label się utrzymuje (jak server)
-    - Smoothing buffer 20 predykcji, próg int(20 * 0.7) = 14
+    Video analysis consistent with server.py:
+    - MediaPipe on every frame (0.6/0.6)
+    - Model inference every INFERENCE_INTERVAL seconds (5 Hz)
+    - Between inferences: last_label is kept (like the server)
+    - Smoothing buffer of 20 predictions, threshold int(20 * 0.7) = 14
     """
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -137,7 +137,7 @@ def evaluate_video(cap, pose, calibration, fps, model, scaler):
     results = []
     predictions_buffer = []
     last_label = 0
-    last_raw_pred = 0   # carry-forward między inferencjami (jak last_label w server)
+    last_raw_pred = 0   # carry-forward between inferences (like last_label in the server)
     last_confidence = 1.0
     frame_idx = 0
 
@@ -147,7 +147,7 @@ def evaluate_video(cap, pose, calibration, fps, model, scaler):
             break
         frame_idx += 1
         if frame_idx % 500 == 0:
-            print(f"  Klatka {frame_idx}/{total}...")
+            print(f"  Frame {frame_idx}/{total}...")
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         res = pose.process(rgb)
@@ -172,7 +172,7 @@ def evaluate_video(cap, pose, calibration, fps, model, scaler):
 
             last_label = 1 if predictions_buffer.count(1) >= int(SMOOTH_N * 0.7) else 0
 
-        # prediction: carry-forward gdy osoba widoczna, -1 gdy brak osoby
+        # prediction: carry-forward when the person is visible, -1 when no person
         prediction_out = last_raw_pred if person_visible else -1
 
         results.append({
@@ -188,39 +188,39 @@ def evaluate_video(cap, pose, calibration, fps, model, scaler):
 
 def process_test_video(video_path, video_name, model, scaler):
     print(f"\n{'='*60}")
-    print(f"Przetwarzanie: {video_name}")
+    print(f"Processing: {video_name}")
     print(f"{'='*60}")
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        print(f"  BŁĄD: nie można otworzyć {video_path}")
+        print(f"  ERROR: cannot open {video_path}")
         return
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     if fps <= 0:
         fps = 30.0
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    print(f"  FPS: {fps:.1f}, łączna liczba klatek: {total} "
+    print(f"  FPS: {fps:.1f}, total frames: {total} "
           f"(~{total/fps/60:.1f} min)")
-    print(f"  Inference co {INFERENCE_INTERVAL}s = co {int(fps*INFERENCE_INTERVAL)} klatki")
+    print(f"  Inference every {INFERENCE_INTERVAL}s = every {int(fps*INFERENCE_INTERVAL)} frames")
 
     mp_pose = mp.solutions.pose
 
-    # Kalibracja: 0.7/0.7 (jak server przy tworzeniu profilu)
+    # Calibration: 0.7/0.7 (like the server when creating a profile)
     start_sec = CALIB_START_SEC.get(video_name, 0.0)
-    print(f"  Kalibracja od {start_sec}s (0.7/0.7)...")
+    print(f"  Calibration from {start_sec}s (0.7/0.7)...")
     with mp_pose.Pose(min_detection_confidence=0.7,
                       min_tracking_confidence=0.7,
                       model_complexity=1) as pose_calib:
         calibration = calibrate_from_video(cap, pose_calib, fps, video_name, start_sec)
 
     if calibration is None:
-        print("  BŁĄD: kalibracja nie powiodła się.")
+        print("  ERROR: calibration failed.")
         cap.release()
         return
 
-    # Ewaluacja: 0.6/0.6 (jak server w sesji)
-    print("  Ewaluacja wideo (0.6/0.6)...")
+    # Evaluation: 0.6/0.6 (like the server during a session)
+    print("  Evaluating video (0.6/0.6)...")
     with mp_pose.Pose(min_detection_confidence=0.6,
                       min_tracking_confidence=0.6,
                       model_complexity=1) as pose_eval:
@@ -237,13 +237,13 @@ def process_test_video(video_path, video_name, model, scaler):
 
     valid = df[df["prediction"] != -1]
     bad_pct = valid["prediction"].mean() * 100 if len(valid) else float("nan")
-    print(f"  Zapisano {len(df)} klatek → {out_csv}")
-    print(f"  Raw predykcja: {bad_pct:.1f}% klatek = zła postura")
-    print(f"  UWAGA: uzupełnij ground_truth przez add_ground_truth.py!")
+    print(f"  Saved {len(df)} frames → {out_csv}")
+    print(f"  Raw prediction: {bad_pct:.1f}% of frames = bad posture")
+    print(f"  NOTE: fill in ground_truth with add_ground_truth.py!")
 
 
 def main():
-    print("Wczytywanie modelu...")
+    print("Loading model...")
     model  = joblib.load(MODEL_PATH)
     scaler = joblib.load(SCALER_PATH) if os.path.exists(SCALER_PATH) else None
 
@@ -252,22 +252,22 @@ def main():
         if f.lower().endswith(".mp4")
     ])
     if not video_files:
-        print(f"Brak plików .mp4 w {TEST_VIDEOS_DIR}")
+        print(f"No .mp4 files in {TEST_VIDEOS_DIR}")
         return
 
     if RUN_ONLY:
         video_files = [f for f in video_files if os.path.splitext(f)[0] in RUN_ONLY]
-        print(f"Tryb selektywny – przetwarzam tylko: {RUN_ONLY}")
+        print(f"Selective mode – only processing: {RUN_ONLY}")
     else:
-        print(f"Znaleziono {len(video_files)} filmik(ów): {video_files}")
+        print(f"Found {len(video_files)} video(s): {video_files}")
 
     for fname in video_files:
         video_name = os.path.splitext(fname)[0]
         process_test_video(os.path.join(TEST_VIDEOS_DIR, fname), video_name, model, scaler)
 
     print("\n" + "="*60)
-    print("GOTOWE. Następne kroki:")
-    print("  1. python src/core/add_ground_truth.py  (uzupełnij segmenty)")
+    print("DONE. Next steps:")
+    print("  1. python src/core/add_ground_truth.py  (fill in the segments)")
     print("  2. python src/training/batch_metryki.py")
     print("="*60)
 

@@ -11,7 +11,7 @@ MODEL_PATH  = os.path.join(BASE_DIR, "models", "posture_model.pkl")
 SCALER_PATH = os.path.join(BASE_DIR, "models", "scaler.pkl")
 CSV_PATH    = os.path.join(BASE_DIR, "data", "posture_data.csv")
 
-# dodaj ścieżkę do src żeby importy działały
+# add the project path so the src imports work
 import sys
 sys.path.insert(0, BASE_DIR)
 
@@ -31,7 +31,7 @@ LANDMARKS_TO_USE = {
 mp_pose    = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
-BAD_POSTURE_ALERT_SECONDS = 3   # ile sekund złej postawy zanim alert
+BAD_POSTURE_ALERT_SECONDS = 3   # how many seconds of bad posture before an alert
 
 
 def extract_features(landmarks) -> list:
@@ -47,9 +47,9 @@ def draw_ui(frame, label: int, confidence: float,
             user_name: str, corrections: int, flash: str = ""):
 
     if label == 0:
-        text, color, bg = "DOBRA POSTAWA", (0, 220, 0), (0, 60, 0)
+        text, color, bg = "GOOD POSTURE", (0, 220, 0), (0, 60, 0)
     else:
-        text, color, bg = "ZLA POSTAWA!", (0, 0, 220), (0, 0, 60)
+        text, color, bg = "BAD POSTURE!", (0, 0, 220), (0, 0, 60)
 
     cv2.rectangle(frame, (0, 0), (640, 70), bg, -1)
     cv2.putText(frame, text, (15, 45),
@@ -57,7 +57,7 @@ def draw_ui(frame, label: int, confidence: float,
     cv2.putText(frame, f"{user_name}  |  {confidence:.1%}",
                 (380, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (200, 200, 200), 1)
 
-    # pasek "złej postawy" — rośnie przez 3 sekundy
+    # "bad posture" bar — fills up over 3 seconds
     if label == 1 and bad_seconds > 0:
         bar_w     = 640 - 30
         progress  = min(bad_seconds / alert_threshold, 1.0)
@@ -65,21 +65,21 @@ def draw_ui(frame, label: int, confidence: float,
         cv2.rectangle(frame, (15, 75), (15 + bar_w, 90), (60, 30, 30), -1)
         bar_color = (0, 100, 255) if progress < 0.7 else (0, 0, 220)
         cv2.rectangle(frame, (15, 75), (15 + filled, 90), bar_color, -1)
-        cv2.putText(frame, f"Alert za: {max(0, alert_threshold - bad_seconds):.1f}s",
+        cv2.putText(frame, f"Alert in: {max(0, alert_threshold - bad_seconds):.1f}s",
                     (15, 108), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180, 180, 180), 1)
 
-    # ALERT gdy przekroczony próg
+    # ALERT when the threshold is exceeded
     if bad_seconds >= alert_threshold:
         cv2.rectangle(frame, (100, 180), (540, 260), (0, 0, 180), -1)
         cv2.rectangle(frame, (100, 180), (540, 260), (0, 0, 255), 3)
-        cv2.putText(frame, "POPRAW POSTAWE!", (120, 235),
+        cv2.putText(frame, "FIX YOUR POSTURE!", (120, 235),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
 
-    # dolny pasek
+    # bottom bar
     cv2.rectangle(frame, (0, frame.shape[0] - 55), (640, frame.shape[0]), (30, 30, 30), -1)
-    cv2.putText(frame, "G = oznacz DOBRA  |  B = oznacz ZLA  |  Q = koniec",
+    cv2.putText(frame, "G = mark GOOD  |  B = mark BAD  |  Q = quit",
                 (10, frame.shape[0] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1)
-    cv2.putText(frame, f"Korekt: {corrections}",
+    cv2.putText(frame, f"Corrections: {corrections}",
                 (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (100, 200, 255), 1)
 
     if flash:
@@ -101,26 +101,26 @@ def save_correction(features, correct_label, csv_path):
 
 
 def main():
-    # ── wybór profilu ─────────────────────────────────────────
+    # ── profile selection ─────────────────────────────────────
     profile = select_or_create_profile()
     if profile is None:
-        print("Do widzenia!")
+        print("Goodbye!")
         return
 
-    # ── kalibracja (obowiązkowa) ──────────────────────────────
+    # ── calibration (required) ────────────────────────────────
     profile = ensure_calibration(profile)
     if profile is None:
-        print("Nie można uruchomić bez kalibracji.")
+        print("Cannot start without calibration.")
         return
 
     calibration = profile["calibration"]
     user_name   = profile["name"]
 
     # ── model ─────────────────────────────────────────────────
-    print("\nWczytuję model...")
+    print("\nLoading model...")
     model  = joblib.load(MODEL_PATH)
     scaler = joblib.load(SCALER_PATH) if os.path.exists(SCALER_PATH) else None
-    print("✅ Gotowe!\n")
+    print("✅ Ready!\n")
 
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -135,7 +135,7 @@ def main():
     flash_until    = 0.0
     last_features  = None
 
-    # timer złej postawy
+    # bad posture timer
     bad_since      = None
     bad_seconds    = 0.0
 
@@ -145,7 +145,7 @@ def main():
         model_complexity=1
     ) as pose:
 
-        print(f"📷 Uruchomiono dla: {user_name} | Q = wyjście\n")
+        print(f"📷 Started for: {user_name} | Q = quit\n")
 
         while True:
             ret, frame = cap.read()
@@ -167,7 +167,7 @@ def main():
                 raw_features  = extract_features(results.pose_landmarks.landmark)
                 last_features = raw_features
 
-                # normalizacja względem kalibracji
+                # normalize relative to the calibration
                 norm_features = normalize_features(raw_features, calibration)
 
                 X = np.array(norm_features).reshape(1, -1)
@@ -183,7 +183,7 @@ def main():
                     predictions.pop(0)
                 label = 1 if predictions.count(1) >= int(SMOOTH_N * 0.7) else 0
 
-            # ── timer złej postawy ────────────────────────────
+            # ── bad posture timer ─────────────────────────────
             now = time.time()
             if label == 1:
                 if bad_since is None:
@@ -193,7 +193,7 @@ def main():
                 bad_since   = None
                 bad_seconds = 0.0
 
-            # flash wygasa
+            # flash message expires
             flash_msg = flash_msg if now < flash_until else ""
 
             draw_ui(frame, label, confidence,
@@ -207,13 +207,13 @@ def main():
             if key in (ord("g"), ord("G")) and last_features:
                 save_correction(last_features, 0, CSV_PATH)
                 corrections += 1
-                flash_msg    = "ZAPISANO: DOBRA!"
+                flash_msg    = "SAVED: GOOD!"
                 flash_until  = now + 1.5
 
             elif key in (ord("b"), ord("B")) and last_features:
                 save_correction(last_features, 1, CSV_PATH)
                 corrections += 1
-                flash_msg    = "ZAPISANO: ZLA!"
+                flash_msg    = "SAVED: BAD!"
                 flash_until  = now + 1.5
 
             elif key == ord("q"):
@@ -221,9 +221,9 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
-    print(f"\nZamknięto. Korekt zapisanych: {corrections}")
+    print(f"\nClosed. Corrections saved: {corrections}")
     if corrections > 0:
-        print("Pamiętaj żeby wytrenować model jeszcze raz w Jupyter!")
+        print("Remember to retrain the model in Jupyter!")
 
 
 if __name__ == "__main__":

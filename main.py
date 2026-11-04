@@ -3,32 +3,32 @@ import sys
 import time
 
 def main():
-    print("🚀 Uruchamianie Kociego Strażnika Postawy...")
+    print("🚀 Starting the Cat Posture Guardian...")
 
-    # 1. Uruchomienie serwera AI w tle
-    # Używamy sys.executable, aby mieć pewność, że używamy aktywnego środowiska (.venv)
-    print("🧠 Włączanie serwera sztucznej inteligencji...")
+    # 1. Start the AI server in the background
+    # We use sys.executable to make sure we use the active environment (.venv)
+    print("🧠 Starting the AI server...")
     server_process = subprocess.Popen([sys.executable, "src/core/server.py"])
 
-    # Dajemy serwerowi 2 sekundy na załadowanie modelu ML
+    # Give the server a few seconds to load the ML model
     time.sleep(5)
 
-    # 2. Uruchomienie interfejsu w Electronie
-    print("🎨 Uruchamianie interfejsu graficznego...")
-    # shell=True jest wymagane na systemie Windows, aby rozpoznać komendę 'npm'
+    # 2. Start the Electron interface
+    print("🎨 Starting the graphical interface...")
+    # shell=True is required on Windows so that the 'npm' command is recognised
     electron_process = subprocess.Popen("npm start", shell=True)
 
     try:
-        # Ten kod zatrzymuje skrypt i czeka, aż użytkownik zamknie okienko Electrona
+        # This blocks the script and waits until the user closes the Electron window
         electron_process.wait()
     except KeyboardInterrupt:
         pass
     finally:
-        # 3. Sprzątanie: Kiedy zamkniesz apkę, wyłączamy serwer w tle
-        print("\n🛑 Zamykanie okna. Wyłączanie serwera AI...")
+        # 3. Cleanup: when you close the app, we shut down the background server
+        print("\n🛑 Closing window. Shutting down the AI server...")
         server_process.terminate()
         server_process.wait()
-        print("✨ Aplikacja zamknięta poprawnie. Do widzenia!")
+        print("✨ Application closed cleanly. Goodbye!")
 
 if __name__ == "__main__":
     main()

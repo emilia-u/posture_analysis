@@ -36,15 +36,15 @@ function createWindow() {
     if (isOverlay) {
       if (win.isMaximized()) win.restore();
       win.setResizable(false);
-      win.setSize(80, 80);        // ← dokładnie tyle co awatar
-      win.center();               // wyśrodkuj na starcie
+      win.setSize(80, 80);        // ← exactly the size of the avatar
+      win.center();               // center on start
     } else {
       win.setResizable(true);
       win.maximize();
     }
   });
 
-  // Zastąp stare move-window tym:
+  // Replaces the old move-window handler:
   ipcMain.on('move-window-absolute', (event, x, y) => {
     win.setPosition(x, y);
   });

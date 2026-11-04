@@ -1,11 +1,11 @@
 """
-Narzędzie do dodawania ground truth na podstawie znaczników czasu.
+Tool for adding ground truth based on timestamps.
 
-Uzupełnij słownik GROUND_TRUTH w sekcji KONFIGURACJA.
-Format segmentów: ("HH:MM:SS", "HH:MM:SS", etykieta)
-  etykieta: 0 = dobra postura, 1 = zła postura
+Fill in the GROUND_TRUTH dict in the CONFIGURATION section.
+Segment format: ("HH:MM:SS", "HH:MM:SS", label)
+  label: 0 = good posture, 1 = bad posture
 
-Uruchomienie:
+Usage:
   python src/core/add_ground_truth.py
 """
 
@@ -19,7 +19,7 @@ TEST_VIDEOS_DIR = os.path.join(BASE_DIR, "data", "test_frames")
 
 
 def parse_time(t: str) -> float:
-    """'HH:MM:SS' lub 'MM:SS' → sekundy (float)."""
+    """'HH:MM:SS' or 'MM:SS' → seconds (float)."""
     parts = t.strip().split(":")
     parts = [float(p) for p in parts]
     if len(parts) == 3:
@@ -36,18 +36,18 @@ def get_fps(video_name: str) -> float:
     cap.release()
     if fps <= 0:
         fps = 30.0
-        print(f"  UWAGA: nie udało się odczytać FPS z {path}, przyjęto {fps}")
+        print(f"  WARNING: could not read FPS from {path}, assuming {fps}")
     return fps
 
 
 def apply_ground_truth(video_name: str, segments: list[tuple[str, str, int]]):
     csv_path = os.path.join(REPORTS_DIR, video_name, "wyniki_detekcji.csv")
     if not os.path.exists(csv_path):
-        print(f"  BŁĄD: brak {csv_path} – uruchom najpierw evaluate_external_test.py")
+        print(f"  ERROR: {csv_path} not found – run evaluate_external_test.py first")
         return
 
     fps = get_fps(video_name)
-    print(f"  FPS wideo: {fps:.2f}")
+    print(f"  Video FPS: {fps:.2f}")
 
     df = pd.read_csv(csv_path)
     if "ground_truth" not in df.columns:
@@ -56,25 +56,25 @@ def apply_ground_truth(video_name: str, segments: list[tuple[str, str, int]]):
     for (t_from, t_to, label) in segments:
         s_from = parse_time(t_from)
         s_to   = parse_time(t_to)
-        # frame_num jest 1-indexed, czas klatki N = N/fps
+        # frame_num is 1-indexed, time of frame N = N/fps
         frm_from = max(1, int(s_from * fps) + 1)
         frm_to   = int(s_to * fps)
         mask = (df["frame_num"] >= frm_from) & (df["frame_num"] <= frm_to)
         df.loc[mask, "ground_truth"] = label
         count = mask.sum()
-        print(f"  {t_from}–{t_to} → etykieta={label}  "
-              f"(kl. {frm_from}–{frm_to}, {count} klatek)")
+        print(f"  {t_from}–{t_to} → label={label}  "
+              f"(fr. {frm_from}–{frm_to}, {count} frames)")
 
     df.to_csv(csv_path, index=False)
     labeled = (df["ground_truth"] != -1).sum()
     total   = len(df)
-    print(f"  Zapisano. Oznaczono {labeled}/{total} klatek ({labeled/total*100:.1f}%)")
+    print(f"  Saved. Labeled {labeled}/{total} frames ({labeled/total*100:.1f}%)")
 
 
 # ═══════════════════════════════════════════════════════════════════
-# KONFIGURACJA
-# Format: ("HH:MM:SS", "HH:MM:SS", etykieta)
-#   0 = dobra postura,  1 = zła postura
+# CONFIGURATION
+# Format: ("HH:MM:SS", "HH:MM:SS", label)
+#   0 = good posture,  1 = bad posture
 # ═══════════════════════════════════════════════════════════════════
 GROUND_TRUTH = {
     "testp1": [
@@ -115,6 +115,12 @@ GROUND_TRUTH = {
         ("00:18:40", "00:19:27",  1),
         ("00:19:27", "00:20:00",  0),
     ],
+    "testp6": [
+        ("00:00:00", "00:00:32", 0),
+        ("00:00:32", "00:00:47", 1),
+        ("00:00:47", "00:01:16", 0),
+        ("00:01:16", "00:01:25", 1),
+    ],
 }
 # ═══════════════════════════════════════════════════════════════════
 
@@ -122,14 +128,14 @@ GROUND_TRUTH = {
 def main():
     configured = {k: v for k, v in GROUND_TRUTH.items() if v}
     if not configured:
-        print("Uzupełnij GROUND_TRUTH przed uruchomieniem.")
+        print("Fill in GROUND_TRUTH before running.")
         return
 
     for video_name, segments in configured.items():
         print(f"\n{video_name}:")
         apply_ground_truth(video_name, segments)
 
-    print("\nGotowe! Teraz uruchom: python src/training/batch_metryki.py")
+    print("\nDone! Now run: python src/training/batch_metryki.py")
 
 
 if __name__ == "__main__":
