@@ -22,16 +22,16 @@
 }
 
 body {
-    background-color: rgba(20, 20, 25, 0.90); /* Piękna, delikatna przezroczystość */
+    background-color: rgba(20, 20, 25, 0.90); /* Nice, subtle transparency */
     color: #ffffff;
     overflow: hidden;
-    border-radius: 15px; /* Okno będzie miało zaokrąglone rogi! */
+    border-radius: 15px; /* The window gets rounded corners! */
     border: 1px solid #333;
 }
 
-/* Pasek do przeciągania okna */
+/* Bar for dragging the window */
 .drag-bar {
-    -webkit-app-region: drag; /* Magiczna komenda: pozwala przeciągać okno myszką! */
+    -webkit-app-region: drag; /* Magic property: lets you drag the window with the mouse! */
     height: 35px;
     background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%);
     display: flex;
@@ -71,7 +71,7 @@ body {
 
 h1 {
     font-size: 26px;
-    color: #00ff78; /* Świecący neonowy zielony */
+    color: #00ff78; /* Glowing neon green */
     margin-bottom: 5px;
     text-shadow: 0px 0px 10px rgba(0, 255, 120, 0.4);
 }
@@ -92,7 +92,7 @@ p {
 }
 
 .progress-bar-fill {
-    width: 15%; /* Na start pokazujemy kawałek paska */
+    width: 15%; /* Show a bit of the bar at the start */
     height: 100%;
     background: #ff3366;
     box-shadow: 0px 0px 10px #ff3366;
@@ -121,7 +121,7 @@ button {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    -webkit-app-region: no-drag; /* Ważne, żeby przyciski dało się klikać */
+    -webkit-app-region: no-drag; /* Important so the buttons stay clickable */
 }
 
 button:hover {
@@ -136,13 +136,13 @@ button:hover {
 #btn-overlay:hover {
     box-shadow: 0px 0px 15px rgba(37, 117, 252, 0.5);
 }
-/* --- NOWE DODATKI NA SAM DÓŁ PLIKU --- */
+/* --- NEW ADDITIONS AT THE BOTTOM OF THE FILE --- */
 .draggable-body {
-    -webkit-app-region: drag; /* Pozwala łapać i przesuwać okno za tło */
+    -webkit-app-region: drag; /* Lets you grab and move the window by its background */
 }
 
 #cat-avatar {
-    -webkit-app-region: no-drag; /* Bardzo ważne: bez tego nie dałoby się kliknąć w kota! */
+    -webkit-app-region: no-drag; /* Very important: without this you could not click the cat! */
     cursor: pointer;
     transition: transform 0.2s;
     font-size: 80px;
@@ -150,7 +150,7 @@ button:hover {
 }
 
 #cat-avatar:hover {
-    transform: scale(1.1); /* Kotek lekko rośnie jak najedziesz myszką */
+    transform: scale(1.1); /* The cat grows slightly on mouse hover */
 }
 .draggable-body {
     -webkit-app-region: drag;
@@ -166,7 +166,7 @@ button:hover {
     justify-content: center;
     pointer-events: auto;
 }
-/* ===== MINI MODE - PŁYWAJĄCY KOTEK ===== */
+/* ===== MINI MODE - FLOATING CAT ===== */
 #mini-ui {
     width: 100%;
     height: 100%;
@@ -207,12 +207,12 @@ button:hover {
     cursor: grabbing;
 }
 
-/* W mini-mode usuń padding z container */
+/* In mini mode remove the container padding */
 #mini-ui ~ .container {
     padding: 0 !important;
     height: 100vh !important;
 }
-/* ===== LISTA PROFILI ===== */
+/* ===== PROFILE LIST ===== */
 #profiles-list .profile-row {
     display: grid;
     grid-template-columns: 92% 1fr;
@@ -233,12 +233,12 @@ button:hover {
     transform: none !important;
 }
 #stretch-popup:hover {
-    background: rgba(40,40,50,1) !important; /* Lekkie rozjaśnienie tła */
-    transform: translateY(-5px); /* Delikatne uniesienie */
-    border-color: #00ff78 !important; /* Zmiana koloru ramki na zielony */
+    background: rgba(40,40,50,1) !important; /* Slightly lighter background */
+    transform: translateY(-5px); /* Subtle lift */
+    border-color: #00ff78 !important; /* Change the border color to green */
 }
 
-/* ===== EKRAN STATYSTYK ===== */
+/* ===== STATISTICS SCREEN ===== */
 #stats-screen {
     scrollbar-width: thin;
     scrollbar-color: #333 transparent;

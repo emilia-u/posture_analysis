@@ -9,17 +9,17 @@ from src.core.calibration import run_calibration
 
 def select_or_create_profile() -> dict | None:
     """
-    Wyświetla ekran wyboru profilu w oknie OpenCV.
-    Zwraca wybrany/utworzony profil lub None jeśli anulowano.
+    Shows the profile selection screen in an OpenCV window.
+    Returns the selected/created profile, or None if cancelled.
     """
     while True:
         profiles = get_all_profiles()
 
         if not profiles:
-            print("\n👋 Brak profili — tworzenie pierwszego profilu...")
+            print("\n👋 No profiles — creating the first profile...")
             return _create_new_profile_flow()
 
-        # pokaż ekran wyboru
+        # show the selection screen
         choice = _show_profile_selection(profiles)
 
         if choice == "new":
@@ -31,30 +31,30 @@ def select_or_create_profile() -> dict | None:
             return None
 
         elif choice is not None:
-            # wybrano istniejący profil
+            # an existing profile was selected
             profile = get_profile(choice)
             update_last_used(choice)
-            print(f"\n✅ Zalogowano jako: {profile['name']}")
+            print(f"\n✅ Logged in as: {profile['name']}")
             return profile
 
 
 def ensure_calibration(profile: dict) -> dict | None:
     """
-    Sprawdza czy profil ma kalibrację.
-    Jeśli nie — wymusza kalibrację.
-    Zwraca zaktualizowany profil lub None jeśli anulowano.
+    Checks whether the profile has a calibration.
+    If not, forces a calibration.
+    Returns the updated profile, or None if cancelled.
     """
     if has_calibration(profile["name"]):
-        print(f"✅ Kalibracja OK dla: {profile['name']}")
+        print(f"✅ Calibration OK for: {profile['name']}")
         return profile
 
-    print(f"\n⚠️  Profil '{profile['name']}' nie ma kalibracji!")
-    print("Kalibracja jest obowiązkowa przed użyciem aplikacji.")
+    print(f"\n⚠️  Profile '{profile['name']}' has no calibration!")
+    print("Calibration is required before using the application.")
 
     calibration_data = run_calibration(profile["name"])
 
     if calibration_data is None:
-        print("❌ Kalibracja anulowana — nie można uruchomić aplikacji.")
+        print("❌ Calibration cancelled — cannot start the application.")
         return None
 
     save_calibration(profile["name"], calibration_data)
@@ -64,10 +64,10 @@ def ensure_calibration(profile: dict) -> dict | None:
 
 def _show_profile_selection(profiles: list[dict]) -> str | None:
     """
-    Rysuje ekran wyboru profilu w oknie OpenCV.
-    Zwraca nazwę wybranego profilu, 'new', lub 'quit'.
+    Draws the profile selection screen in an OpenCV window.
+    Returns the selected profile name, 'new', or 'quit'.
     """
-    WINDOW = "PostureGuard - Wybór profilu"
+    WINDOW = "PostureGuard - Select profile"
     W, H   = 640, 480
 
     selected = None
@@ -78,7 +78,7 @@ def _show_profile_selection(profiles: list[dict]) -> str | None:
 
         key = cv2.waitKey(30) & 0xFF
 
-        # klawisze 1-9 wybierają profil
+        # keys 1-9 select a profile
         for i, profile in enumerate(profiles[:9]):
             if key == ord(str(i + 1)):
                 selected = profile["name"]
@@ -93,17 +93,17 @@ def _show_profile_selection(profiles: list[dict]) -> str | None:
 
 
 def _draw_profile_screen(profiles: list[dict], W: int, H: int):
-    """Rysuje ekran wyboru profilu."""
+    """Draws the profile selection screen."""
     frame = __import__("numpy").zeros((H, W, 3), dtype=__import__("numpy").uint8)
-    frame[:] = (25, 25, 35)  # ciemne tło
+    frame[:] = (25, 25, 35)  # dark background
 
-    # tytuł
+    # title
     cv2.putText(frame, "PostureGuard", (180, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 200, 255), 3)
-    cv2.putText(frame, "Wybierz profil:", (220, 110),
+    cv2.putText(frame, "Select a profile:", (220, 110),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (180, 180, 180), 1)
 
-    # lista profili
+    # profile list
     for i, profile in enumerate(profiles[:9]):
         y         = 160 + i * 50
         name      = profile["name"]
@@ -111,7 +111,7 @@ def _draw_profile_screen(profiles: list[dict], W: int, H: int):
         has_cal   = "✓" if profile.get("calibration") else "!"
         cal_color = (0, 200, 0) if profile.get("calibration") else (0, 100, 220)
 
-        # tło wiersza
+        # row background
         cv2.rectangle(frame, (40, y - 28), (W - 40, y + 12), (40, 40, 55), -1)
         cv2.rectangle(frame, (40, y - 28), (W - 40, y + 12), (60, 60, 80), 1)
 
@@ -119,42 +119,42 @@ def _draw_profile_screen(profiles: list[dict], W: int, H: int):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.75, (150, 150, 150), 1)
         cv2.putText(frame, name, (90, y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-        cv2.putText(frame, f"ostatnio: {last_used}", (300, y),
+        cv2.putText(frame, f"last used: {last_used}", (300, y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 120, 120), 1)
         cv2.putText(frame, f"[{has_cal}]", (580, y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.65, cal_color, 2)
 
-    # dolne opcje
+    # bottom options
     y_bottom = H - 80
     cv2.line(frame, (40, y_bottom), (W - 40, y_bottom), (60, 60, 80), 1)
-    cv2.putText(frame, "N = Nowy profil",
+    cv2.putText(frame, "N = New profile",
                 (55, y_bottom + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 200, 255), 1)
-    cv2.putText(frame, "Q = Wyjście",
+    cv2.putText(frame, "Q = Quit",
                 (380, y_bottom + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (100, 100, 100), 1)
-    cv2.putText(frame, "[✓] = skalibrowany   [!] = wymaga kalibracji",
+    cv2.putText(frame, "[✓] = calibrated   [!] = needs calibration",
                 (55, y_bottom + 58), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (100, 100, 100), 1)
 
     return frame
 
 
 def _create_new_profile_flow() -> dict | None:
-    """Flow tworzenia nowego profilu przez terminal."""
+    """Flow for creating a new profile via the terminal."""
     print("\n" + "="*40)
-    print("  NOWY PROFIL")
+    print("  NEW PROFILE")
     print("="*40)
-    name = input("Podaj swoje imię (lub Q aby anulować): ").strip()
+    name = input("Enter your name (or Q to cancel): ").strip()
 
     if name.lower() == "q" or not name:
         return None
 
-    # sprawdź czy profil już istnieje
+    # check whether the profile already exists
     existing = get_profile(name)
     if existing:
-        print(f"⚠️  Profil '{name}' już istnieje!")
-        overwrite = input("Nadpisać? (t/n): ").strip().lower()
-        if overwrite != "t":
+        print(f"⚠️  Profile '{name}' already exists!")
+        overwrite = input("Overwrite? (y/n): ").strip().lower()
+        if overwrite != "y":
             return None
 
     profile = create_profile(name)
-    print(f"✅ Utworzono profil: {name}")
+    print(f"✅ Created profile: {name}")
     return profile

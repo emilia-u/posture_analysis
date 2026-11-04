@@ -6,14 +6,14 @@ import mediapipe as mp
 import time
 
 # ==========================================
-# KONFIGURACJA
+# CONFIGURATION
 # ==========================================
 VIDEO_PATH = r"C:\Users\emilk\Downloads\profesor.mp4"
 PROFILE_NAME = "profesor"
 # ==========================================
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# Upewnij się, że ścieżka do profili jest poprawna dla Twojej struktury
+# Make sure the profiles path is correct for your folder structure
 PROFILES_DIR = os.path.join(BASE_DIR, "data", "profiles")
 
 LANDMARKS_TO_USE = {
@@ -22,17 +22,17 @@ LANDMARKS_TO_USE = {
 }
 
 def main():
-    print(f"--- START KALIBRACJI Z WIDEO PROFESORA ---")
+    print(f"--- STARTING CALIBRATION FROM THE PROFESSOR'S VIDEO ---")
     cap = cv2.VideoCapture(VIDEO_PATH)
     if not cap.isOpened():
-        print("BŁĄD: Nie można otworzyć wideo.")
+        print("ERROR: Cannot open the video.")
         return
 
     mp_pose = mp.solutions.pose
     samples = []
 
     with mp_pose.Pose(min_detection_confidence=0.7, min_tracking_confidence=0.7, model_complexity=1) as pose:
-        # Pobieramy 20 klatek z pierwszych sekund filmu (gdzie profesor siedzi prosto)
+        # Take 20 frames from the first seconds of the video (where the professor sits upright)
         while len(samples) < 20:
             ret, frame = cap.read()
             if not ret:
@@ -53,7 +53,7 @@ def main():
                         sample[f"{name}_y"] = p.y
                         sample[f"{name}_z"] = p.z
                     samples.append(sample)
-                    print(f"Pobrano klatkę do wzorca: {len(samples)}/20")
+                    print(f"Captured reference frame: {len(samples)}/20")
 
     cap.release()
 
@@ -76,9 +76,9 @@ def main():
         with open(profile_path, "w", encoding="utf-8") as f:
             json.dump(profile_content, f, indent=2, ensure_ascii=False)
 
-        print(f"\n✅ SUKCES! Utworzono profil kalibracyjny dla: {PROFILE_NAME}")
+        print(f"\n✅ SUCCESS! Created calibration profile for: {PROFILE_NAME}")
     else:
-        print("\n❌ Błąd: Nie udało się zebrać próbek. Sprawdź, czy na początku filmu widać sylwetkę.")
+        print("\n❌ Error: Could not collect samples. Check that the person is visible at the start of the video.")
 
 if __name__ == "__main__":
     main()

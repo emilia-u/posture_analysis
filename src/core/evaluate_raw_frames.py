@@ -1,10 +1,10 @@
 """
-Ewaluacja sesji nagranych przez record_video.py (surowe klatki JPG).
-Uzupełnia istniejący CSV z ground truth o predykcje modelu.
+Evaluation of sessions recorded with record_video.py (raw JPG frames).
+Adds model predictions to the existing ground-truth CSV.
 
-Logika inference identyczna jak server.py i evaluate_external_test.py.
+Inference logic is identical to server.py and evaluate_external_test.py.
 
-Uruchomienie:
+Usage:
   python src/core/evaluate_raw_frames.py
 """
 
@@ -31,16 +31,16 @@ MODEL_PATH     = os.path.join(BASE_DIR, "models", "posture_model.pkl")
 SCALER_PATH    = os.path.join(BASE_DIR, "models", "scaler.pkl")
 
 SMOOTH_N           = 20
-INFERENCE_INTERVAL = 0.2   # sekund między inferencjami (jak server: 5 Hz)
-ASSUMED_FPS        = 30.0  # FPS kamery przy nagrywaniu
+INFERENCE_INTERVAL = 0.2   # seconds between inferences (like the server: 5 Hz)
+ASSUMED_FPS        = 30.0  # camera FPS during recording
 CALIB_SECONDS      = 5.0
 CALIB_VIS_MIN      = 0.6
 CALIB_SAMPLES_MIN  = 10
 
-# ── KONFIGURACJA ──────────────────────────────────────────────────────────────
-SESSION_NAME       = "testp5"   # ← zmień tutaj (musi być ten sam co w record_video.py)
-CALIB_START_FRAME  = 0          # od której klatki (0-based) kalibrować
-#                                 (zmień jeśli na początku siedziałaś w złej pozycji)
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
+SESSION_NAME       = "testp5"   # ← change here (must match record_video.py)
+CALIB_START_FRAME  = 0          # frame (0-based) to start calibrating from
+#                                 (change it if you sat in a bad position at the start)
 # ─────────────────────────────────────────────────────────────────────────────
 
 LANDMARKS_TO_USE = {"nose": 0, "left_shoulder": 11, "right_shoulder": 12}
@@ -77,8 +77,8 @@ def calibrate_from_frames(frames_dir, sorted_files, pose, start_frame=0):
                 samples.append(sample)
 
     if len(samples) < CALIB_SAMPLES_MIN:
-        print(f"  UWAGA: tylko {len(samples)} próbek kalibracyjnych "
-              f"(minimum {CALIB_SAMPLES_MIN}). Kontynuuję.")
+        print(f"  WARNING: only {len(samples)} calibration samples "
+              f"(minimum {CALIB_SAMPLES_MIN}). Continuing.")
     if not samples:
         return None
 
@@ -97,7 +97,7 @@ def calibrate_from_frames(frames_dir, sorted_files, pose, start_frame=0):
               encoding="utf-8") as f:
         json.dump(profile, f, indent=2, ensure_ascii=False)
 
-    print(f"  Kalibracja: {len(samples)} próbek (kl. {start_frame}–"
+    print(f"  Calibration: {len(samples)} samples (fr. {start_frame}–"
           f"{start_frame + max_frames}) → data/profiles/{SESSION_NAME}.json")
     return calibration_data
 
@@ -114,7 +114,7 @@ def evaluate_frames(frames_dir, sorted_files, pose, calibration, model, scaler):
 
     for frame_idx, fname in enumerate(sorted_files, start=1):
         if frame_idx % 500 == 0:
-            print(f"  Klatka {frame_idx}/{total}...")
+            print(f"  Frame {frame_idx}/{total}...")
 
         frame = cv2.imread(os.path.join(frames_dir, fname))
         if frame is None:
@@ -159,32 +159,32 @@ def main():
     csv_path    = os.path.join(reports_dir, "wyniki_detekcji.csv")
 
     if not os.path.isdir(frames_dir):
-        print(f"BŁĄD: brak folderu {frames_dir}")
+        print(f"ERROR: folder not found: {frames_dir}")
         return
 
     sorted_files = sorted(f for f in os.listdir(frames_dir) if f.endswith(".jpg"))
     if not sorted_files:
-        print(f"BŁĄD: brak plików JPG w {frames_dir}")
+        print(f"ERROR: no JPG files in {frames_dir}")
         return
 
-    print(f"Sesja:  {SESSION_NAME}")
-    print(f"Klatek: {len(sorted_files)}")
+    print(f"Session: {SESSION_NAME}")
+    print(f"Frames:  {len(sorted_files)}")
 
-    # Wczytaj ground truth zapisany przez record_video.py
+    # Load the ground truth saved by record_video.py
     if not os.path.exists(csv_path):
-        print(f"UWAGA: brak {csv_path} – ground_truth zostanie ustawiony na -1")
+        print(f"WARNING: {csv_path} not found – ground_truth will be set to -1")
         gt_df = None
     else:
         gt_df = pd.read_csv(csv_path)
         labeled = (gt_df["ground_truth"] != -1).sum()
-        print(f"Ground truth: {labeled}/{len(gt_df)} klatek oznaczonych")
+        print(f"Ground truth: {labeled}/{len(gt_df)} frames labeled")
 
     model  = joblib.load(MODEL_PATH)
     scaler = joblib.load(SCALER_PATH) if os.path.exists(SCALER_PATH) else None
 
     mp_pose = mp.solutions.pose
 
-    print(f"\nKalibracja od klatki {CALIB_START_FRAME} (0.7/0.7)...")
+    print(f"\nCalibration from frame {CALIB_START_FRAME} (0.7/0.7)...")
     with mp_pose.Pose(min_detection_confidence=0.7,
                       min_tracking_confidence=0.7,
                       model_complexity=1) as pose_calib:
@@ -192,10 +192,10 @@ def main():
                                              pose_calib, CALIB_START_FRAME)
 
     if calibration is None:
-        print("BŁĄD: kalibracja nie powiodła się.")
+        print("ERROR: calibration failed.")
         return
 
-    print("\nEwaluacja (0.6/0.6)...")
+    print("\nEvaluating (0.6/0.6)...")
     with mp_pose.Pose(min_detection_confidence=0.6,
                       min_tracking_confidence=0.6,
                       model_complexity=1) as pose_eval:
@@ -221,10 +221,10 @@ def main():
     bad_pct = valid["prediction"].mean() * 100 if len(valid) else float("nan")
     labeled = (pred_df["ground_truth"] != -1).sum()
 
-    print(f"\nZapisano {len(pred_df)} klatek → {csv_path}")
-    print(f"Raw predykcja: {bad_pct:.1f}% klatek = zła postura")
-    print(f"Ground truth:  {labeled}/{len(pred_df)} klatek oznaczonych")
-    print(f"\nNastępny krok: python src/training/batch_metryki_test.py")
+    print(f"\nSaved {len(pred_df)} frames → {csv_path}")
+    print(f"Raw prediction: {bad_pct:.1f}% of frames = bad posture")
+    print(f"Ground truth:  {labeled}/{len(pred_df)} frames labeled")
+    print(f"\nNext step: python src/training/batch_metryki_test.py")
 
 
 if __name__ == "__main__":

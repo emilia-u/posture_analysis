@@ -8,7 +8,7 @@ import mediapipe as mp
 import json
 
 # ==========================================
-# KONFIGURACJA
+# CONFIGURATION
 # ==========================================
 VIDEO_PATH = r"C:\Users\emilk\Downloads\profesor.mp4"
 PROFILE_NAME = "profesor"
@@ -39,14 +39,14 @@ def extract_features(landmarks):
 
 
 def main():
-    print("--- START ANALIZY WIDEO PROFESORA ---")
+    print("--- STARTING ANALYSIS OF THE PROFESSOR'S VIDEO ---")
     model = joblib.load(MODEL_PATH)
     scaler = joblib.load(SCALER_PATH) if os.path.exists(SCALER_PATH) else None
 
     profile_path = os.path.join(PROFILES_DIR, f"{PROFILE_NAME}.json")
     with open(profile_path, "r", encoding="utf-8") as f:
         calibration = json.load(f)["calibration"]
-    print(f"Wczytano profil: {PROFILE_NAME}")
+    print(f"Loaded profile: {PROFILE_NAME}")
 
     cap = cv2.VideoCapture(VIDEO_PATH)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -54,7 +54,7 @@ def main():
     results = []
     mp_pose = mp.solutions.pose
 
-    # Do wygładzania w locie (żeby od razu mieć ładne wyniki)
+    # For on-the-fly smoothing (so results are clean right away)
     predictions_buffer = []
 
     with mp_pose.Pose(min_detection_confidence=0.6, min_tracking_confidence=0.6, model_complexity=1) as pose:
@@ -66,7 +66,7 @@ def main():
 
             frame_idx += 1
             if frame_idx % 100 == 0:
-                print(f"Analiza klatki: {frame_idx}/{total_frames}")
+                print(f"Analyzing frame: {frame_idx}/{total_frames}")
 
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             res = pose.process(rgb)
@@ -84,7 +84,7 @@ def main():
 
                 pred = int(model.predict(X)[0])
 
-                # Bufor anty-szumowy (20 klatek)
+                # Anti-noise buffer (20 frames)
                 predictions_buffer.append(pred)
                 if len(predictions_buffer) > 20:
                     predictions_buffer.pop(0)
@@ -106,7 +106,7 @@ def main():
         df.to_csv(OUTPUT_CSV, index=False)
         output_path = OUTPUT_CSV
 
-    print(f"\n✅ ZAKOŃCZONO! Zapisano wyniki w: {output_path}")
+    print(f"\n✅ DONE! Results saved to: {output_path}")
 
 
 if __name__ == "__main__":

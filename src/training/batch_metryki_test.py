@@ -1,13 +1,13 @@
 """
-Metryki i wykresy dla czystego zbioru testowego (filmiki od prowadzącego).
-Przetwarza tylko foldery testp* z data/reports/.
-FPS odczytywany z pliku MP4 (nie hardkodowany).
+Metrics and plots for the clean test set (videos provided by the instructor).
+Only processes the testp* folders in data/reports/.
+FPS is read from the MP4 file (not hard-coded).
 
-Dla każdej sesji generuje:
+For each session it generates:
   - macierz_konfuzji.png
   - wykres_czasowy.png
 
-Uruchomienie:
+Usage:
     python src/training/batch_metryki_test.py
 """
 
@@ -29,8 +29,8 @@ SMOOTH_N       = 20
 SMOOTH_THRESH  = 0.70
 SHORT_THRESH_S = 3.0
 
-# ── KONFIGURACJA ──────────────────────────────────────────────────────────────
-ONLY_SESSION = "testp5"   # np. "testp2" – przetworzy tylko tę sesję; None = wszystkie testp*
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
+ONLY_SESSION = "testp5"   # e.g. "testp2" – only process that session; None = all testp*
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -107,7 +107,7 @@ def compute_metrics(df, fps, smooth_n=SMOOTH_N,
     fmt = lambda v, d=2: round(v, d) if not (isinstance(v, float) and np.isnan(v)) else "N/D"
 
     return df, cm, {
-        "Klatek":              len(df),
+        "Frames":              len(df),
         "FPS":                 round(fps, 1),
         "Bad % (GT)":          round(gt_s.mean() * 100, 1),
         "Acc. raw":            round(acc_raw * 100, 2),
@@ -115,19 +115,19 @@ def compute_metrics(df, fps, smooth_n=SMOOTH_N,
         "Sensitivity":         fmt(round(sensitivity * 100, 2)),
         "Specificity":         fmt(round(specificity * 100, 2)),
         "FA/h":                fmt(round(fa_per_h, 1), 1),
-        "Wykrycie [s]":        fmt(avg_det),
-        "Bad-przed-alarm [s]": fmt(avg_bb),
-        "% Kr.FA":             round(pct_sh, 1),
+        "Detection [s]":        fmt(avg_det),
+        "Bad-before-alarm [s]": fmt(avg_bb),
+        "% Short FA":             round(pct_sh, 1),
     }
 
 
 def plot_confusion_matrix(cm, session_name, out_dir, metrics):
     fig, ax = plt.subplots(figsize=(5, 4))
-    labels = ["Dobra (0)", "Zła (1)"]
+    labels = ["Good (0)", "Bad (1)"]
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax,
                 xticklabels=labels, yticklabels=labels,
                 linewidths=0.5, linecolor="#ccc")
-    ax.set_xlabel("Predykcja (wygładzona)", fontsize=11)
+    ax.set_xlabel("Prediction (smoothed)", fontsize=11)
     ax.set_ylabel("Ground Truth", fontsize=11)
     acc  = metrics["Acc. smooth"]
     sens = metrics["Sensitivity"]
@@ -140,37 +140,37 @@ def plot_confusion_matrix(cm, session_name, out_dir, metrics):
     path = os.path.join(out_dir, "macierz_konfuzji.png")
     plt.savefig(path, dpi=150, bbox_inches="tight")
     plt.close()
-    print(f"  Zapisano: {path}")
+    print(f"  Saved: {path}")
 
 
 def plot_time_series(df, session_name, fps, out_dir, metrics):
-    # Oś czasu w sekundach – na podstawie rzeczywistego numeru klatki w wideo
+    # Time axis in seconds – based on the actual frame number in the video
     t = df["frame_num"] / fps
 
     fig, axes = plt.subplots(2, 1, figsize=(14, 6), sharex=True)
 
-    # Górny panel: ground truth
+    # Top panel: ground truth
     axes[0].fill_between(t, df["ground_truth"], alpha=0.7,
-                         color="#e74c3c", label="Zła postura (GT=1)")
+                         color="#e74c3c", label="Bad posture (GT=1)")
     axes[0].fill_between(t, 1 - df["ground_truth"], alpha=0.4,
-                         color="#2ecc71", label="Dobra postura (GT=0)")
+                         color="#2ecc71", label="Good posture (GT=0)")
     axes[0].set_ylabel("Ground Truth", fontsize=10)
     axes[0].set_ylim(-0.05, 1.05)
     axes[0].legend(loc="upper right", fontsize=8)
-    axes[0].set_title(f"{session_name} – porównanie ground truth i predykcji",
+    axes[0].set_title(f"{session_name} – ground truth vs. prediction",
                       fontsize=11, fontweight="bold")
 
-    # Dolny panel: predykcja wygładzona
+    # Bottom panel: smoothed prediction
     axes[1].fill_between(t, df["pred_s"], alpha=0.7,
-                         color="#e67e22", label="Predykcja: zła (1)")
+                         color="#e67e22", label="Prediction: bad (1)")
     axes[1].fill_between(t, 1 - df["pred_s"], alpha=0.4,
-                         color="#3498db", label="Predykcja: dobra (0)")
-    axes[1].set_ylabel("Predykcja (wygładzona)", fontsize=10)
-    axes[1].set_xlabel("Czas", fontsize=10)
+                         color="#3498db", label="Prediction: good (0)")
+    axes[1].set_ylabel("Prediction (smoothed)", fontsize=10)
+    axes[1].set_xlabel("Time", fontsize=10)
     axes[1].set_ylim(-0.05, 1.05)
     axes[1].legend(loc="upper right", fontsize=8)
 
-    # Formatter MM:SS na obu panelach – interwał ticków zależny od długości wideo
+    # MM:SS formatter on both panels – tick interval depends on the video length
     import matplotlib.ticker as ticker
     duration = float(t.max() - t.min())
     tick_interval = 60 if duration < 600 else 120 if duration < 1500 else 300
@@ -181,7 +181,7 @@ def plot_time_series(df, session_name, fps, out_dir, metrics):
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(fmt_mmss))
         ax.xaxis.set_major_locator(ticker.MultipleLocator(tick_interval))
         ax.tick_params(axis="x", labelbottom=True, labelsize=8)
-        ax.set_xlabel("Czas [MM:SS]", fontsize=9)
+        ax.set_xlabel("Time [MM:SS]", fontsize=9)
 
     acc  = metrics["Acc. smooth"]
     fa   = metrics["FA/h"]
@@ -194,12 +194,12 @@ def plot_time_series(df, session_name, fps, out_dir, metrics):
     path = os.path.join(out_dir, "wykres_czasowy.png")
     plt.savefig(path, dpi=150, bbox_inches="tight")
     plt.close()
-    print(f"  Zapisano: {path}")
+    print(f"  Saved: {path}")
 
 
 def plot_summary(result_df, out_dir):
-    """Wykres porównawczy wszystkich 4 sesji."""
-    sessions = result_df["Sesja"].tolist()
+    """Comparison chart for all 4 sessions."""
+    sessions = result_df["Session"].tolist()
     x = np.arange(len(sessions))
     width = 0.25
 
@@ -210,27 +210,27 @@ def plot_summary(result_df, out_dir):
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-    # Lewy: accuracy
+    # Left: accuracy
     axes[0].bar(x - width/2, acc_raw,    width, label="Acc. raw",    color="#3498db", alpha=0.85)
     axes[0].bar(x + width/2, acc_smooth, width, label="Acc. smooth", color="#2980b9", alpha=0.85)
-    axes[0].axhline(y=50, color="gray", linestyle="--", linewidth=1, label="losowy klasyfikator (50%)")
+    axes[0].axhline(y=50, color="gray", linestyle="--", linewidth=1, label="random classifier (50%)")
     axes[0].set_xticks(x)
     axes[0].set_xticklabels(sessions)
-    axes[0].set_ylabel("Dokładność [%]")
-    axes[0].set_title("Dokładność klasyfikacji", fontweight="bold")
+    axes[0].set_ylabel("Accuracy [%]")
+    axes[0].set_title("Classification accuracy", fontweight="bold")
     axes[0].legend(fontsize=9)
     axes[0].set_ylim(0, 105)
     for i, (r, s) in enumerate(zip(acc_raw, acc_smooth)):
         axes[0].text(i - width/2, r + 1, f"{r:.1f}", ha="center", fontsize=8)
         axes[0].text(i + width/2, s + 1, f"{s:.1f}", ha="center", fontsize=8)
 
-    # Prawy: sensitivity vs specificity
-    axes[1].bar(x - width/2, sens, width, label="Sensitivity (wykrycie złej)", color="#e74c3c", alpha=0.85)
-    axes[1].bar(x + width/2, spec, width, label="Specificity (wykrycie dobrej)", color="#2ecc71", alpha=0.85)
+    # Right: sensitivity vs specificity
+    axes[1].bar(x - width/2, sens, width, label="Sensitivity (detecting bad)", color="#e74c3c", alpha=0.85)
+    axes[1].bar(x + width/2, spec, width, label="Specificity (detecting good)", color="#2ecc71", alpha=0.85)
     axes[1].set_xticks(x)
     axes[1].set_xticklabels(sessions)
-    axes[1].set_ylabel("Wartość [%]")
-    axes[1].set_title("Czułość i swoistość", fontweight="bold")
+    axes[1].set_ylabel("Value [%]")
+    axes[1].set_title("Sensitivity and specificity", fontweight="bold")
     axes[1].legend(fontsize=9)
     axes[1].set_ylim(0, 105)
     for i, (se, sp) in enumerate(zip(sens, spec)):
@@ -239,15 +239,15 @@ def plot_summary(result_df, out_dir):
         if not np.isnan(sp):
             axes[1].text(i + width/2, sp + 1, f"{sp:.1f}", ha="center", fontsize=8)
 
-    plt.suptitle("Czysty zbiór testowy – porównanie sesji", fontsize=13, fontweight="bold")
+    plt.suptitle("Clean test set – session comparison", fontsize=13, fontweight="bold")
     plt.tight_layout()
     path = os.path.join(out_dir, "podsumowanie_test_zewnetrzny.png")
     plt.savefig(path, dpi=150, bbox_inches="tight")
     plt.close()
-    print(f"\nZapisano wykres zbiorczy: {path}")
+    print(f"\nSaved summary chart: {path}")
 
 
-# ── Główna pętla ─────────────────────────────────────────────────────────────
+# ── Main loop ────────────────────────────────────────────────────────────────
 rows    = []
 skipped = []
 
@@ -259,75 +259,75 @@ test_dirs = sorted([
 if ONLY_SESSION:
     test_dirs = [d for d in test_dirs if d == ONLY_SESSION]
     if not test_dirs:
-        print(f"Folder '{ONLY_SESSION}' nie istnieje w {REPORTS_DIR}.")
+        print(f"Folder '{ONLY_SESSION}' does not exist in {REPORTS_DIR}.")
         sys.exit(1)
 
 if not test_dirs:
-    print(f"Brak folderów testp* w {REPORTS_DIR}.")
-    print("Uruchom najpierw: python src/core/evaluate_external_test.py")
+    print(f"No testp* folders in {REPORTS_DIR}.")
+    print("Run this first: python src/core/evaluate_external_test.py")
     sys.exit(1)
 
 for d in test_dirs:
     csv_path = os.path.join(REPORTS_DIR, d, "wyniki_detekcji.csv")
     if not os.path.isfile(csv_path):
-        skipped.append(f"{d} (brak CSV)")
+        skipped.append(f"{d} (no CSV)")
         continue
 
     df_raw = pd.read_csv(csv_path)
     df_raw = df_raw[(df_raw["prediction"] != -1) & (df_raw["ground_truth"] != -1)].reset_index(drop=True)
 
     if len(df_raw) == 0:
-        skipped.append(f"{d} (brak oznaczonych klatek)")
+        skipped.append(f"{d} (no labeled frames)")
         continue
 
     fps = get_fps(d)
     out_dir = os.path.join(REPORTS_DIR, d)
 
-    print(f"\n{d}  ({len(df_raw)} klatek, FPS={fps:.1f})")
+    print(f"\n{d}  ({len(df_raw)} frames, FPS={fps:.1f})")
     df_proc, cm, m = compute_metrics(df_raw, fps)
 
     plot_confusion_matrix(cm, d, out_dir, m)
     plot_time_series(df_proc, d, fps, out_dir, m)
 
-    rows.append({"Sesja": d, **m})
+    rows.append({"Session": d, **m})
 
 if not rows:
-    print("\nBrak danych.")
+    print("\nNo data.")
     sys.exit(1)
 
 result = pd.DataFrame(rows)
 
-# ── Tabela ───────────────────────────────────────────────────────────────────
+# ── Table ────────────────────────────────────────────────────────────────────
 pd.set_option("display.max_colwidth", 50)
 pd.set_option("display.width", 180)
 
 print()
 print("=" * 160)
-print("  METRYKI – CZYSTY ZBIÓR TESTOWY (filmiki od prowadzącego)")
-print(f"  Parametry: SMOOTH_N={SMOOTH_N}, próg={SMOOTH_THRESH:.0%}")
+print("  METRICS – CLEAN TEST SET (videos from the instructor)")
+print(f"  Parameters: SMOOTH_N={SMOOTH_N}, threshold={SMOOTH_THRESH:.0%}")
 print("=" * 160)
 print(result.to_string(index=False))
 print("=" * 160)
 
-numeric_cols = ["Acc. raw", "Acc. smooth", "Sensitivity", "Specificity", "% Kr.FA"]
+numeric_cols = ["Acc. raw", "Acc. smooth", "Sensitivity", "Specificity", "% Short FA"]
 print()
-print("Średnia po osobach:")
+print("Average across people:")
 for col in numeric_cols:
     vals = pd.to_numeric(result[col], errors="coerce").dropna()
     if len(vals):
-        print(f"  {col:<25} śr={vals.mean():.2f}  min={vals.min():.2f}  max={vals.max():.2f}")
-for col in ["FA/h", "Wykrycie [s]", "Bad-przed-alarm [s]"]:
+        print(f"  {col:<25} avg={vals.mean():.2f}  min={vals.min():.2f}  max={vals.max():.2f}")
+for col in ["FA/h", "Detection [s]", "Bad-before-alarm [s]"]:
     vals = pd.to_numeric(result[col], errors="coerce").dropna()
     if len(vals):
-        print(f"  {col:<25} śr={vals.mean():.2f}  min={vals.min():.2f}  max={vals.max():.2f}")
+        print(f"  {col:<25} avg={vals.mean():.2f}  min={vals.min():.2f}  max={vals.max():.2f}")
 
-# ── Wykres zbiorczy ───────────────────────────────────────────────────────────
+# ── Summary chart ─────────────────────────────────────────────────────────────
 plot_summary(result, REPORTS_DIR)
 
-# ── Zapis CSV ────────────────────────────────────────────────────────────────
+# ── Save CSV ─────────────────────────────────────────────────────────────────
 out_csv = os.path.join(REPORTS_DIR, "metryki_test_zewnetrzny.csv")
 result.to_csv(out_csv, index=False)
-print(f"Zapisano: {out_csv}")
+print(f"Saved: {out_csv}")
 
 if skipped:
-    print(f"\nPominięto: {skipped}")
+    print(f"\nSkipped: {skipped}")

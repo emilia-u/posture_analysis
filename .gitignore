@@ -1,5 +1,5 @@
 # ============================================
-# 🔴 ŚRODOWISKA WIRTUALNE
+# 🔴 VIRTUAL ENVIRONMENTS
 # ============================================
 .venv/
 venv/
@@ -7,7 +7,7 @@ env/
 ENV/
 
 # ============================================
-# 🔴 PYTHONOWE ŚMIECI
+# 🔴 PYTHON JUNK
 # ============================================
 __pycache__/
 *.py[cod]
@@ -32,7 +32,7 @@ wheels/
 MANIFEST
 
 # ============================================
-# 🔴 JUPYTER NOTEBOOK ŚMIECI
+# 🔴 JUPYTER NOTEBOOK JUNK
 # ============================================
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
@@ -40,7 +40,7 @@ MANIFEST
 .jupyter/
 
 # ============================================
-# 🔴 DUŻE PLIKI - NAGRANIA I KLATKI
+# 🔴 LARGE FILES - RECORDINGS AND FRAMES
 # ============================================
 data/raw_frames/
 data/sessions
@@ -51,20 +51,20 @@ data/raw_video/
 *.flv
 
 # ============================================
-# 🔴 MODELE I CACHE'E (JEŚLI SĄ REGENEROWALNE)
+# 🔴 MODELS AND CACHES (IF REGENERABLE)
 # ============================================
 models/scaler.pkl
 models/*.h5
 models/*.pt
 
 # ============================================
-# 🔴 CSV'Y Z ANALIZY (TYMCZASOWE WYNIKI)
+# 🔴 ANALYSIS CSVs (TEMPORARY RESULTS)
 # ============================================
 wyniki_z_klatek.csv
 *.csv
 
 # ============================================
-# 🔴 EDYTORY I IDE
+# 🔴 EDITORS AND IDEs
 # ============================================
 .idea/
 .vscode/
@@ -82,14 +82,14 @@ npm-debug.log
 yarn-error.log
 
 # ============================================
-# 🔴 LOKALNE KONFIGURACJE
+# 🔴 LOCAL CONFIGS
 # ============================================
 .env
 .env.local
 config_local.json
 
 # ============================================
-# 🔴 LOGI
+# 🔴 LOGS
 # ============================================
 *.log
 logs/

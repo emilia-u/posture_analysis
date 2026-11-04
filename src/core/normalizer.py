@@ -7,8 +7,8 @@ LANDMARKS_TO_USE = [
 
 def normalize_features(features: list[float], calibration: dict) -> list[float]:
     """
-    Normalizuje wektor cech względem danych kalibracyjnych.
-    Zamiast surowych współrzędnych model dostaje odchylenia od normy.
+    Normalizes the feature vector relative to the calibration data.
+    Instead of raw coordinates, the model receives deviations from the baseline.
     """
     normalized = []
     for name in LANDMARKS_TO_USE:

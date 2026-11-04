@@ -16,20 +16,20 @@ LANDMARKS_TO_USE = {
 mp_pose    = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
-CALIBRATION_SECONDS = 5   # ile sekund zbieramy próbki
+CALIBRATION_SECONDS = 5   # how many seconds we collect samples for
 
 
 def run_calibration(user_name: str) -> dict | None:
     """
-    Uruchamia okno kalibracji.
-    Zwraca słownik z uśrednionymi współrzędnymi bazowymi
-    lub None jeśli użytkownik anulował.
+    Opens the calibration window.
+    Returns a dict with the averaged baseline coordinates,
+    or None if the user cancelled.
     """
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    samples       = []   # zbierane próbki
+    samples       = []   # collected samples
     collecting    = False
     start_time    = None
     result        = None
@@ -40,8 +40,8 @@ def run_calibration(user_name: str) -> dict | None:
         model_complexity=1
     ) as pose:
 
-        print(f"\n🎯 Kalibracja dla: {user_name}")
-        print("Usiądź prosto i naciśnij SPACJĘ aby rozpocząć...")
+        print(f"\n🎯 Calibration for: {user_name}")
+        print("Sit up straight and press SPACE to start...")
 
         while True:
             ret, frame = cap.read()
@@ -52,7 +52,7 @@ def run_calibration(user_name: str) -> dict | None:
             rgb     = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(rgb)
 
-            # widoczność barków
+            # shoulder visibility
             visibility = 0.0
             if results.pose_landmarks:
                 lm        = results.pose_landmarks.landmark
@@ -67,7 +67,7 @@ def run_calibration(user_name: str) -> dict | None:
                     mp_drawing.DrawingSpec(color=(255, 255, 0), thickness=2)
                 )
 
-                # zbieranie próbek
+                # collecting samples
                 if collecting and visibility > 0.6:
                     sample = {}
                     for name, idx in LANDMARKS_TO_USE.items():
@@ -77,18 +77,18 @@ def run_calibration(user_name: str) -> dict | None:
                         sample[f"{name}_z"] = p.z
                     samples.append(sample)
 
-            # sprawdź czy czas kalibracji minął
+            # check whether the calibration time has elapsed
             if collecting and start_time:
                 elapsed  = time.time() - start_time
                 progress = min(elapsed / CALIBRATION_SECONDS, 1.0)
 
                 if elapsed >= CALIBRATION_SECONDS:
-                    # zakończ kalibrację
+                    # finish calibration
                     if len(samples) >= 10:
                         result = _average_samples(samples)
-                        print(f"✅ Zebrano {len(samples)} próbek kalibracyjnych!")
+                        print(f"✅ Collected {len(samples)} calibration samples!")
                     else:
-                        print("❌ Za mało próbek — spróbuj ponownie!")
+                        print("❌ Not enough samples — try again!")
                         samples    = []
                         collecting = False
                         start_time = None
@@ -98,18 +98,18 @@ def run_calibration(user_name: str) -> dict | None:
             else:
                 progress = 0.0
 
-            # rysuj UI kalibracji
+            # draw the calibration UI
             _draw_calibration_ui(frame, user_name, collecting, progress, visibility)
-            cv2.imshow("PostureGuard - Kalibracja", frame)
+            cv2.imshow("PostureGuard - Calibration", frame)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord(" ") and not collecting and visibility > 0.6:
                 collecting = True
                 start_time = time.time()
                 samples    = []
-                print("▶ Zbieranie próbek...")
+                print("▶ Collecting samples...")
             elif key == ord("q"):
-                print("Anulowano kalibrację.")
+                print("Calibration cancelled.")
                 break
 
     cap.release()
@@ -118,7 +118,7 @@ def run_calibration(user_name: str) -> dict | None:
 
 
 def _average_samples(samples: list[dict]) -> dict:
-    """Uśrednia zebrane próbki kalibracyjne."""
+    """Averages the collected calibration samples."""
     keys   = samples[0].keys()
     result = {}
     for key in keys:
@@ -131,25 +131,25 @@ def _draw_calibration_ui(frame, user_name: str, collecting: bool,
                           progress: float, visibility: float):
     h, w = frame.shape[:2]
 
-    # Półprzezroczyste tło dla górnego paska (gradient effect)
+    # Semi-transparent background for the top bar (gradient effect)
     overlay = frame.copy()
     cv2.rectangle(overlay, (0, 0), (w, 90), (25, 20, 35), -1)
     cv2.addWeighted(overlay, 0.85, frame, 0.15, 0, frame)
 
-    # Neon border na górze
+    # Neon border at the top
     cv2.rectangle(frame, (0, 0), (w, 3), (120, 255, 0), -1)
 
-    # Tytuł z emoji i shadowem
-    title_text = f"🎯 Kalibracja Profilu: {user_name}"
+    # Title with emoji and shadow
+    title_text = f"🎯 Profile Calibration: {user_name}"
     cv2.putText(frame, title_text, (22, 52), cv2.FONT_HERSHEY_DUPLEX, 1.0, (0, 0, 0), 3)  # shadow
     cv2.putText(frame, title_text, (20, 50), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 2)  # text
 
-    # Widoczność barków z ikonką
+    # Shoulder visibility with an icon
     vis_color = (0, 255, 120) if visibility > 0.7 else (0, 165, 255) if visibility > 0.4 else (0, 80, 220)
     vis_icon = "✓" if visibility > 0.7 else "⚠"
-    vis_text = f"{vis_icon} Detekcja: {'Doskonała!' if visibility > 0.7 else 'Popraw pozycję'}"
+    vis_text = f"{vis_icon} Detection: {'Excellent!' if visibility > 0.7 else 'Adjust your position'}"
 
-    # Tło dla statusu widoczności
+    # Background for the visibility status
     status_bg = overlay.copy()
     cv2.rectangle(status_bg, (10, 100), (w - 10, 135), (20, 20, 30), -1)
     cv2.addWeighted(status_bg, 0.7, frame, 0.3, 0, frame)
@@ -159,20 +159,20 @@ def _draw_calibration_ui(frame, user_name: str, collecting: bool,
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, vis_color, 2, cv2.LINE_AA)
 
     if not collecting:
-        # Instrukcje z ładnym formatowaniem
+        # Nicely formatted instructions
         instr_bg = overlay.copy()
         cv2.rectangle(instr_bg, (10, 155), (w - 10, 230), (20, 20, 30), -1)
         cv2.addWeighted(instr_bg, 0.7, frame, 0.3, 0, frame)
 
-        cv2.putText(frame, "📸 Usiądź PROSTO i patrz w kamerę",
+        cv2.putText(frame, "📸 Sit up STRAIGHT and look at the camera",
                     (25, 185), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (220, 220, 255), 2, cv2.LINE_AA)
-        cv2.putText(frame, "⌨  Naciśnij SPACJĘ aby rozpocząć",
+        cv2.putText(frame, "⌨  Press SPACE to start",
                     (25, 215), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 200), 2, cv2.LINE_AA)
     else:
-        # Pasek postępu z gradientem
+        # Progress bar with a gradient
         bar_x, bar_y, bar_w, bar_h = 20, 160, w - 40, 40
 
-        # Tło paska
+        # Bar background
         prog_bg = overlay.copy()
         cv2.rectangle(prog_bg, (bar_x - 5, bar_y - 5), (bar_x + bar_w + 5, bar_y + bar_h + 5), (20, 20, 30), -1)
         cv2.addWeighted(prog_bg, 0.8, frame, 0.2, 0, frame)
@@ -180,29 +180,29 @@ def _draw_calibration_ui(frame, user_name: str, collecting: bool,
         cv2.rectangle(frame, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (60, 60, 80), -1)
         cv2.rectangle(frame, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (100, 100, 120), 2, cv2.LINE_AA)
 
-        # Wypełnienie paska z zielonym gradientem
+        # Bar fill with a green gradient
         filled = int(bar_w * progress)
         if filled > 0:
-            # Gradient od żółto-zielonego do zielonego
+            # Gradient from yellow-green to green
             color = (0, int(180 + 75 * progress), int(220 - 100 * progress))
             cv2.rectangle(frame, (bar_x, bar_y), (bar_x + filled, bar_y + bar_h), color, -1)
             cv2.rectangle(frame, (bar_x, bar_y), (bar_x + filled, bar_y + bar_h), (0, 255, 150), 2, cv2.LINE_AA)
 
-        # Tekst na pasku
+        # Text on the bar
         secs_left = CALIBRATION_SECONDS - int(progress * CALIBRATION_SECONDS)
         percent_text = f"{int(progress * 100)}%"
         cv2.putText(frame, percent_text, (bar_x + bar_w // 2 - 30, bar_y + bar_h // 2 + 10),
                     cv2.FONT_HERSHEY_DUPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
 
-        cv2.putText(frame, f"⏱ Nie ruszaj się... {secs_left}s",
+        cv2.putText(frame, f"⏱ Hold still... {secs_left}s",
                     (bar_x, bar_y + bar_h + 35),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 120), 2, cv2.LINE_AA)
 
-    # Dolny pasek z instrukcją
+    # Bottom bar with instructions
     bottom_overlay = overlay.copy()
     cv2.rectangle(bottom_overlay, (0, h - 45), (w, h), (25, 20, 35), -1)
     cv2.addWeighted(bottom_overlay, 0.85, frame, 0.15, 0, frame)
     cv2.rectangle(frame, (0, h - 45), (w, h - 42), (120, 255, 0), -1)
 
-    cv2.putText(frame, "❌ Naciśnij Q aby anulować",
+    cv2.putText(frame, "❌ Press Q to cancel",
                 (20, h - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (180, 180, 200), 1, cv2.LINE_AA)

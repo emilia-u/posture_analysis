@@ -12,7 +12,7 @@ def _ensure_dir():
 
 
 def get_all_profiles() -> list[dict]:
-    """Zwraca listę wszystkich zapisanych profili."""
+    """Returns a list of all saved profiles."""
     _ensure_dir()
     profiles = []
     for fname in os.listdir(PROFILES_DIR):
@@ -24,7 +24,7 @@ def get_all_profiles() -> list[dict]:
 
 
 def get_profile(name: str) -> dict | None:
-    """Wczytuje profil po nazwie. Zwraca None jeśli nie istnieje."""
+    """Loads a profile by name. Returns None if it does not exist."""
     _ensure_dir()
     path = os.path.join(PROFILES_DIR, f"{name.lower()}.json")
     if not os.path.exists(path):
@@ -34,7 +34,7 @@ def get_profile(name: str) -> dict | None:
 
 
 def save_profile(profile: dict):
-    """Zapisuje profil do pliku JSON."""
+    """Saves the profile to a JSON file."""
     _ensure_dir()
     name = profile["name"].lower()
     path = os.path.join(PROFILES_DIR, f"{name}.json")
@@ -43,12 +43,12 @@ def save_profile(profile: dict):
 
 
 def create_profile(name: str, avatar_type: str = "cat") -> dict:
-    """Tworzy nowy pusty profil (bez kalibracji)."""
+    """Creates a new empty profile (without calibration)."""
     profile = {
         "name": name,
         "created":     datetime.now().strftime("%Y-%m-%d %H:%M"),
         "last_used":   datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "calibration": None,   # wypełni się po kalibracji
+        "calibration": None,   # filled in after calibration
         "sensitivity": "medium",
         "avatar_type": avatar_type
     }
@@ -57,7 +57,7 @@ def create_profile(name: str, avatar_type: str = "cat") -> dict:
 
 
 def update_last_used(name: str):
-    """Aktualizuje datę ostatniego użycia profilu."""
+    """Updates the profile's last-used date."""
     profile = get_profile(name)
     if profile:
         profile["last_used"] = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -65,38 +65,38 @@ def update_last_used(name: str):
 
 
 def save_calibration(name: str, calibration_data: dict):
-    """Zapisuje dane kalibracji do profilu."""
+    """Saves calibration data to the profile."""
     profile = get_profile(name)
     if profile is None:
-        raise ValueError(f"Profil '{name}' nie istnieje!")
+        raise ValueError(f"Profile '{name}' does not exist!")
     profile["calibration"] = calibration_data
     profile["calibrated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     save_profile(profile)
-    print(f"✅ Kalibracja zapisana dla profilu: {name}")
+    print(f"✅ Calibration saved for profile: {name}")
 
 
 def has_calibration(name: str) -> bool:
-    """Sprawdza czy profil ma zapisaną kalibrację."""
+    """Checks whether the profile has a saved calibration."""
     profile = get_profile(name)
     return profile is not None and profile.get("calibration") is not None
 
 
 def delete_profile(name: str) -> bool:
-    """Usuwa profil i jego sesje. Zwraca True jesli sie udalo."""
+    """Deletes a profile and its sessions. Returns True on success."""
     profile_name_lower = name.lower()
 
-    # Usun plik profilu
+    # Delete the profile file
     profile_path = os.path.join(PROFILES_DIR, f"{profile_name_lower}.json")
     if os.path.exists(profile_path):
         os.remove(profile_path)
 
-    # Usun folder z sesjami
+    # Delete the sessions folder
     sessions_folder = os.path.join(SESSIONS_DIR, profile_name_lower)
     if os.path.exists(sessions_folder):
         shutil.rmtree(sessions_folder)
-        print(f"✅ Usunieto sesje dla profilu: {name}")
+        print(f"✅ Deleted sessions for profile: {name}")
 
-    # Zwroc True jesli profil zostal usuniety
+    # Return True if the profile was deleted
     return not os.path.exists(profile_path)
 
 
@@ -104,7 +104,7 @@ SESSIONS_DIR = os.path.join(BASE_DIR, "data", "sessions")
 
 
 def save_session(profile_name: str, session_data: dict):
-    """Zapisuje dane sesji do pliku JSON."""
+    """Saves session data to a JSON file."""
     profile_sessions_dir = os.path.join(SESSIONS_DIR, profile_name.lower())
     os.makedirs(profile_sessions_dir, exist_ok=True)
     filename = session_data["start_time"].replace(":", "-").replace(" ", "_") + ".json"
@@ -114,7 +114,7 @@ def save_session(profile_name: str, session_data: dict):
 
 
 def get_sessions(profile_name: str, limit: int = 200) -> list[dict]:
-    """Zwraca ostatnie N sesji dla profilu, posortowane od najnowszej."""
+    """Returns the last N sessions for a profile, newest first."""
     profile_sessions_dir = os.path.join(SESSIONS_DIR, profile_name.lower())
     if not os.path.exists(profile_sessions_dir):
         return []
